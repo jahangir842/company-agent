@@ -1,9 +1,9 @@
 import asyncio
 import csv
 from flask import Flask, render_template, request, jsonify
-from agentscope.agent import ReActAgent
 from agentscope.model import OpenAIChatModel
 from agentscope.formatter import OllamaChatFormatter
+from agentscope.agent import ReActAgent  
 from agentscope.memory import InMemoryMemory
 from agentscope.tool import Toolkit
 from agentscope.message import Msg
@@ -67,9 +67,8 @@ def api_analyze():
 
 if __name__ == '__main__':
     print("\n╔════════════════════════════════════════════╗")
-    print("║  AgentScope Hiring Demo - Web Version     ║")
+    print("║  AgentScope Company Agent                 ║")
     print("║                                            ║")
-    print("║  Install: pip install flask                ║")
     print("║  Open: http://localhost:5000              ║")
     print("╚════════════════════════════════════════════╝\n")
     app.run(debug=False, port=5000)

@@ -1,0 +1,11 @@
+# conda create -n agenscope-env python=3.10
+
+agentscope
+flask
+asyncio
+aiohttp
+sqlalchemy[asyncio]
+aiosqlite
+pydantic==2.12.5
+starlette==1.0.0
+protobuf==6.33.6
