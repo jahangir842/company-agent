@@ -52,6 +52,7 @@ Candidate Pool:
     msg = Msg(name="user", role="user", content=query)
     return (await agent(msg)).get_text_content()
 
+
 @app.route('/')
 def index():
     return render_template('hiring.html')

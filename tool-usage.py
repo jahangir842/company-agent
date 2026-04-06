@@ -1,53 +1,122 @@
 import asyncio
-from flask import Flask, request, jsonify
+import csv
+from flask import Flask, render_template, request, jsonify
 from agentscope.model import OpenAIChatModel
+from agentscope.formatter import DashScopeChatFormatter
 from agentscope.agent import ReActAgent  
 from agentscope.memory import InMemoryMemory
-from agentscope.tool import Toolkit
+from agentscope.tool import Toolkit, ToolResponse
 from agentscope.message import Msg
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
-# 1. Define a simple Tool function
-def calculate_monthly_salary(annual_salary: int) -> str:
+# --- 1. TOOL DEFINITIONS ---
+def calculate_monthly_salary(annual_salary: int) -> ToolResponse:
     """
     Calculate the monthly take-home pay from an annual salary.
     Args:
         annual_salary (int): The yearly salary amount.
     """
-    monthly = annual_salary / 12
-    return f"The monthly salary is ${monthly:.2f}"
+    try:
+        annual_val = float(annual_salary)
+        monthly = annual_val / 12
+        return ToolResponse(f"The monthly salary is ${monthly:.2f}")
+    except ValueError:
+        return ToolResponse("Error: Please provide a valid number for the annual salary.")
 
-# 2. Setup the Toolkit
-hiring_tools = Toolkit()
-hiring_tools.add(calculate_monthly_salary)
+def multiply_numbers(a: float, b: float) -> ToolResponse:
+    """
+    Multiply two numbers together. Use this for any general multiplication tasks.
+    Args:
+        a (float): The first number to multiply.
+        b (float): The second number to multiply.
+    """
+    try:
+        result = float(a) * float(b)
+        return ToolResponse(f"The result of {a} multiplied by {b} is {result}")
+    except ValueError:
+        return ToolResponse("Error: Please provide valid numbers for multiplication.")
 
-# 3. Setup the Model
-model = OpenAIChatModel(
-    model_name="/app/local_model/3.1-8b-instruct",
-    api_key="key",
-    client_kwargs={"base_url": "http://192.168.3.73:8080/v1"},
+# --- 2. DATA LOADING ---
+def load_candidates():
+    candidates = []
+    try:
+        with open('candidates.csv', 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                candidates.append(row)
+    except FileNotFoundError:
+        print("Warning: candidates.csv not found.")
+    return candidates
+
+COMPANY_DATA = """
+HIRING: 7 open positions, 45 candidates, 12 interviews scheduled
+PROJECTS: Mobile Redesign, API Migration, Security Audit
+METRICS: 156 employees, $2.5M revenue, 94.2% retention
+"""
+
+# Prepare candidates string for the prompt
+candidates_list = load_candidates()
+CANDIDATES_DATA = "\n".join([
+    f"- {c['name']}: {c['position']}, {c['experience']} exp, Skills: {c['skills']}, Status: {c['status']}, Salary: {c['salary_expectation']}" 
+    for c in candidates_list
+])
+
+# --- 3. GLOBAL SETUP (Fixes Amnesia Bug & Persona Bias) ---
+agent_tools = Toolkit()
+agent_tools.register_tool_function(calculate_monthly_salary)
+agent_tools.register_tool_function(multiply_numbers)
+
+full_context = f"Company Data:\n{COMPANY_DATA}\n\nCandidate Pool:\n{CANDIDATES_DATA}"
+
+# Memory stays alive between clicks
+chat_memory = InMemoryMemory()
+
+# Agent created globally with a broader persona
+agent = ReActAgent(
+    name="CompanyAssistant", 
+    sys_prompt=(
+        f"You are a helpful company assistant. You have access to hiring data:\n{full_context}\n\n"
+        "CRITICAL TOOL INSTRUCTIONS:\n"
+        "- IF the user asks about candidate pay: use the `calculate_monthly_salary` tool.\n"
+        "- IF the user asks to multiply numbers: you MUST use the `multiply_numbers` tool. DO NOT calculate it internally.\n"
+        "- DO NOT use the salary tool for general math problems."
+    ),
+    model=OpenAIChatModel(
+        model_name="/app/local_model/3.1-8b-instruct",
+        api_key="key",
+        client_kwargs={"base_url": "http://192.168.3.73:8080/v1"},
+        stream=False,
+    ),
+    memory=chat_memory,
+    formatter=DashScopeChatFormatter(), 
+    toolkit=agent_tools,
 )
 
+# --- 4. CORE LOGIC ---
 async def analyze(query):
-    # We define the agent inside so it gets a fresh memory per request
-    agent = ReActAgent(
-        name="HiringAgent",
-        sys_prompt="You are a hiring assistant. Use the provided tools for calculations.",
-        model=model,
-        memory=InMemoryMemory(),
-        toolkit=hiring_tools, # Tools are now active!
-    )
-    
-    msg = Msg(name="user", content=query, role="user")
+    # Just passing the message to the global agent
+    msg = Msg(name="user", role="user", content=query)
     response = await agent(msg)
     return response.get_text_content()
 
+# --- 5. FLASK ROUTES ---
+@app.route('/')
+def index():
+    return render_template('tools.html')
+
 @app.route('/api/analyze', methods=['POST'])
-def api_analyze():
-    query = request.json.get('query', '')
-    result = asyncio.run(analyze(query))
-    return jsonify({'response': result})
+async def api_analyze(): # Async fixes the "Event Loop Closed" error
+    try:
+        query = request.json.get('query', '')
+        result = await analyze(query)
+        return jsonify({'response': result})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    print("\n╔════════════════════════════════════════════╗")
+    print("║  AgentScope Hiring Agent with Tools       ║")
+    print("║  Open: http://localhost:5000              ║")
+    print("╚════════════════════════════════════════════╝\n")
+    app.run(debug=False, port=5000)
