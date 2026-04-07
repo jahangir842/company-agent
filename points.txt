@@ -1,0 +1,8 @@
+llama  3.2 1B ------- 16 BF, 2GB vRAM
+
+
+why we cant run it without asyncio
+Because the AgentScope developers designed the library to be "Async-First" from the ground up, 
+and You must use asyncio because AgentScope is built on an asynchronous architecture that requires 
+an event loop to manage its internal reasoning, tool-handling, and multi-agent coordination.
+

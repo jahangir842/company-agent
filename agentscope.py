@@ -4,16 +4,10 @@ from transformers import pipeline
 from agentscope.agent import ReActAgent
 from agentscope.message import Msg
 from agentscope.model import ChatResponse 
-from agentscope.formatter import DashScopeChatFormatter 
+from agentscope.formatter import OllamaChatFormatter
 
-print("Loading Llama-3.2-1B into memory...")
-
-pipe = pipeline(
-    "text-generation", 
-    model="unsloth/Llama-3.2-1B-Instruct", 
-    dtype=torch.bfloat16, 
-    device_map="auto"
-)
+pipe = pipeline("text-generation", model="unsloth/Llama-3.2-1B-Instruct", 
+                dtype=torch.bfloat16, device_map="auto")
 
 async def local_llama(messages, **kwargs):
     prompt = [
@@ -28,18 +22,10 @@ local_llama.format = lambda msgs: msgs
 local_llama.stream = False          
 local_llama.config_name = "local"   
 
-agent = ReActAgent(
-    name="Assistant", 
-    sys_prompt="You are a helpful, concise AI.", 
-    model=local_llama,
-    formatter=DashScopeChatFormatter()
-)
+agent = ReActAgent(name="Assistant", sys_prompt="You are a helpful, concise AI.", model=local_llama, formatter=OllamaChatFormatter())
 
 print("\n🤖 Assistant ready! \n" + "─"*20)
 while True:
     query = input("\nYou: ")
-        
     response = asyncio.run(agent(Msg(name="user", role="user", content=query)))
-    
-    # In ReActAgent, the final content is now inside that list we created
     print(f"\nAssistant: {response.content}")
