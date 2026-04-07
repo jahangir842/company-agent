@@ -8,9 +8,12 @@ from agentscope.memory import InMemoryMemory
 from agentscope.tool import Toolkit, ToolResponse
 from agentscope.message import Msg
 
+from ddgs import DDGS
+
 app = Flask(__name__, template_folder='templates')
 
 # --- 1. TOOL DEFINITIONS ---
+
 def calculate_monthly_salary(annual_salary: int) -> ToolResponse:
     """
     Calculate the monthly take-home pay from an annual salary.
@@ -37,6 +40,22 @@ def multiply_numbers(a: float, b: float) -> ToolResponse:
     except ValueError:
         return ToolResponse("Error: Please provide valid numbers for multiplication.")
 
+def web_search(query: str) -> ToolResponse:
+    """
+    Search the web for up-to-date information, news, or current events. 
+    Args:
+        query (str): The specific search term or question to look up.
+    """
+    try:
+        results = DDGS().text(query, max_results=3)
+        if not results:
+            return ToolResponse("Error: Search returned no results. Try a different query.")
+            
+        formatted_results = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
+        return ToolResponse(formatted_results)
+    except Exception as e:
+        return ToolResponse(f"Search failed: {str(e)}")
+
 # --- 2. DATA LOADING ---
 def load_candidates():
     candidates = []
@@ -55,31 +74,34 @@ PROJECTS: Mobile Redesign, API Migration, Security Audit
 METRICS: 156 employees, $2.5M revenue, 94.2% retention
 """
 
-# Prepare candidates string for the prompt
 candidates_list = load_candidates()
 CANDIDATES_DATA = "\n".join([
     f"- {c['name']}: {c['position']}, {c['experience']} exp, Skills: {c['skills']}, Status: {c['status']}, Salary: {c['salary_expectation']}" 
     for c in candidates_list
 ])
 
-# --- 3. GLOBAL SETUP (Fixes Amnesia Bug & Persona Bias) ---
+# --- 3. GLOBAL SETUP ---
+
+# Register ALL tools to a single toolkit
 agent_tools = Toolkit()
 agent_tools.register_tool_function(calculate_monthly_salary)
 agent_tools.register_tool_function(multiply_numbers)
+agent_tools.register_tool_function(web_search)
 
 full_context = f"Company Data:\n{COMPANY_DATA}\n\nCandidate Pool:\n{CANDIDATES_DATA}"
 
 # Memory stays alive between clicks
 chat_memory = InMemoryMemory()
 
-# Agent created globally with a broader persona
+# Create the Omni-Agent
 agent = ReActAgent(
-    name="CompanyAssistant", 
+    name="OmniAssistant", 
     sys_prompt=(
-        f"You are a helpful company assistant. You have access to hiring data:\n{full_context}\n\n"
+        f"You are a highly capable AI assistant. You have access to internal company data:\n{full_context}\n\n"
         "CRITICAL TOOL INSTRUCTIONS:\n"
         "- IF the user asks about candidate pay: use the `calculate_monthly_salary` tool.\n"
         "- IF the user asks to multiply numbers: you MUST use the `multiply_numbers` tool. DO NOT calculate it internally.\n"
+        "- IF the user asks about current events, outside knowledge, or facts not in your company data: you MUST use the `web_search` tool.\n"
         "- DO NOT use the salary tool for general math problems."
     ),
     model=OpenAIChatModel(
@@ -95,7 +117,6 @@ agent = ReActAgent(
 
 # --- 4. CORE LOGIC ---
 async def analyze(query):
-    # Just passing the message to the global agent
     msg = Msg(name="user", role="user", content=query)
     response = await agent(msg)
     return response.get_text_content()
@@ -103,10 +124,11 @@ async def analyze(query):
 # --- 5. FLASK ROUTES ---
 @app.route('/')
 def index():
-    return render_template('tools.html')
+    # Pointing to the unified tools.html template you just created!
+    return render_template('tools.html') 
 
 @app.route('/api/analyze', methods=['POST'])
-async def api_analyze(): # Async fixes the "Event Loop Closed" error
+async def api_analyze(): 
     try:
         query = request.json.get('query', '')
         result = await analyze(query)
@@ -116,7 +138,7 @@ async def api_analyze(): # Async fixes the "Event Loop Closed" error
 
 if __name__ == '__main__':
     print("\n╔════════════════════════════════════════════╗")
-    print("║  AgentScope Hiring Agent with Tools       ║")
+    print("║  AgentScope Omni-Agent (3 Tools Loaded)   ║")
     print("║  Open: http://localhost:5000              ║")
     print("╚════════════════════════════════════════════╝\n")
     app.run(debug=False, port=5000)

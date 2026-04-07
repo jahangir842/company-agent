@@ -7,7 +7,7 @@ Used to enable automatic tool usage in agents.
 # Lets the model decide when to use tools
 
 --tool-call-parser llama3_json
-# Parses tool calls using Hermes format
+# Parses tool calls using llama3_json format
 ```
 
 * Auto tool selection enabled

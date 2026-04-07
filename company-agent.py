@@ -5,7 +5,6 @@ from agentscope.model import OpenAIChatModel
 from agentscope.formatter import OllamaChatFormatter
 from agentscope.agent import ReActAgent  
 from agentscope.memory import InMemoryMemory
-from agentscope.tool import Toolkit
 from agentscope.message import Msg
 
 app = Flask(__name__, template_folder='templates')
@@ -47,7 +46,6 @@ Candidate Pool:
         ),
         memory=InMemoryMemory(),
         formatter=OllamaChatFormatter(),
-        toolkit=Toolkit(),
     )
     msg = Msg(name="user", role="user", content=query)
     return (await agent(msg)).get_text_content()
