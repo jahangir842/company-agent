@@ -125,7 +125,7 @@ async def analyze(query):
 @app.route('/')
 def index():
     # Pointing to the unified tools.html template you just created!
-    return render_template('tools.html') 
+    return render_template('master-agent.html') 
 
 @app.route('/api/analyze', methods=['POST'])
 async def api_analyze(): 
