@@ -1,8 +1,7 @@
 import torch
 from transformers import pipeline
 
-pipe = pipeline("text-generation", model="unsloth/Llama-3.2-1B-Instruct", 
-                dtype=torch.bfloat16, device_map="auto")
+pipe = pipeline("text-generation", model="unsloth/Llama-3.2-1B-Instruct", dtype=torch.bfloat16, device_map="auto")
 
 messages = [{"role": "system", "content": "You are a helpful, concise AI."}]
 

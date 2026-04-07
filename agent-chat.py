@@ -6,8 +6,7 @@ from agentscope.message import Msg
 from agentscope.model import ChatResponse 
 from agentscope.formatter import OllamaChatFormatter
 
-pipe = pipeline("text-generation", model="unsloth/Llama-3.2-1B-Instruct", 
-                dtype=torch.bfloat16, device_map="auto")
+pipe = pipeline("text-generation", model="unsloth/Llama-3.2-1B-Instruct", dtype=torch.bfloat16, device_map="auto")
 
 async def local_llama(messages, **kwargs):
     prompt = [
