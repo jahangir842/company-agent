@@ -1,11 +1,13 @@
-import torch
-from transformers import pipeline
+from transformers import pipeline , logging
 
-pipe = pipeline("text-generation", model="meta-llama/Llama-3.2-1B", dtype=torch.bfloat16, device_map="auto")
+logging.set_verbosity_error()
 
-messages = [{"role": "system", "content": "You are a helpful, concise AI."}]
+pipe = pipeline("text-generation", model="meta-llama/Llama-3.2-1B-Instruct", dtype="bfloat16", device_map=0)
 
-print("\n🤖 Assistant ready! \n" + "─"*20)
+messages = [{"role": "system", "content": "You are a helpful AI Assistant."}]
+
+print("\n Assistant ready! \n" + "─"*20)
+
 
 while True:
     user_input = input("\nYou: ")
